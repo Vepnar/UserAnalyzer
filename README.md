@@ -1,4 +1,4 @@
-# UserAnalyzeer
+# UserAnalyzer
 A discord bot that analyses word usage  
 
 ## Commands
