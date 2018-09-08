@@ -4,7 +4,7 @@ A discord bot that analyses word usage
 ## Commands
 all the commands start with `$`
 
-###Roles
+### Roles
 **$addrole** `@rolemention rolename [group]`
 __This command is for administrators__
 They can use this command to make a role optainable
