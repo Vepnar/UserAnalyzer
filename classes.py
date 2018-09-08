@@ -11,6 +11,7 @@ class cooldown:
         if self.id == uid:
             return True
         return False
-
+    def remain(self):
+        return self.time
 def initclasses():
     pass

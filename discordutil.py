@@ -1,21 +1,22 @@
 import re
-import sqlite3
+import bot
+import nltk
 import json
 import random
+import sqlite3
+import classes
+
+from nltk.tokenize import word_tokenize
 
 
 #Create a variable for the database
 db = None
-#Create variable to log messages
-msg = open('messages.txt','a')
 
 ############################
 # Text processing commands #
 ############################
 
-def splitCmd(cmd,delfirst=0,mentions=True,channels=True,roles=True):
-    #Delete first charactes if possible
-    cmd = cmd[delfirst:]
+def splitCmd(cmd,delfirst=1,mentions=True,channels=True,roles=True):
     #Delete mentions from string if enabled
     if mentions:
         #Delete it!
@@ -34,41 +35,51 @@ def splitCmd(cmd,delfirst=0,mentions=True,channels=True,roles=True):
     #Check if spaces in command
     if ' ' in cmd:
         #Split command at spaces
-        return cmd.split(' ')[1:]
+        return cmd.split(' ')[delfirst:]
     #Return command as array
-    return []
+    return []           
 
-
-#Check if message is usefull for things
-def checkIsUsable(msg):
-    #Check if there are spaces in the message
-    if not ' ' in msg:
-        #Return false if not
-        return False
-    #Check if the message is longer than 9 characters
-    if len(msg) < 9:
-        #Return false if not
-        return False
-    #Check if message contains at least 3 words
-    if len(msg.split(' ')) < 2:
-        #Return false if not
-        return False
-    #Return true if it is a good message
-    return True
-        
 #Check if user has permission to do admin commands
 #Returns '0' for no permissons
 #Return '4' for higest level permisson
 def hasPermissions(user):
     if user.id ==319799124797030400:
+        return 4
+    if user.guild.owner == user:
         return 3
     return 0
 
+#Check if something has a cooldown
+def isInCooldown(code,msg):
+    #Create a cooldown code
+    code = code+str(msg)
+    #Read all cooldowns
+    for c in bot.cooldowns:
+        #Check if it is the same code
+        if c.check(msg):
+            #Return the remaining time if found
+            return c.remain()
+    #Return 0 if not found
+    return 0
+
+#Add a cooldown to something
+def putCooldown(code,msg,time):
+    #Create a cooldown code
+    code = code+str(msg)
+    #Create a cooldown object
+    c = classes.cooldown(code,time)
+    #Add it to the cooldown list
+    bot.cooldowns.append(c)
+        
+#Turn a string in a int
 def getInt(string):
+    #Run the code safe
     try:
+        #Transform if it is possible and return it
         return int(string)
+    #return None if not possible
     except:
-        None
+        return None
 
 ##############################
 # Better database executions #
@@ -184,7 +195,9 @@ def checkUserDB():
      XP INT,\
      LEVEL INT,\
      MONEY INT,\
-     EMOTION TEXT\
+     ANALYZED TEXT,\
+     GAMES TEXT,\
+     EXTRA TEXT\
      );" ,[],commit=True)
 #If enabled it will check if the specific user database exists
 def checkUser(userid,username,commit=True):
@@ -194,8 +207,8 @@ def checkUser(userid,username,commit=True):
     if exists:
         return
     #Create a new user if not exists
-    voidExecute("INSERT INTO Users(ID,NAME,XP,LEVEL,MONEY,EMOTION),\
-    VALUES (?,?,0,0,0,?)",[userid,username,None ],commit=commit)
+    voidExecute("INSERT INTO Users(ID,NAME,XP,LEVEL,MONEY,ANALYZED,GAMES,EXTRA),\
+    VALUES (?,?,0,0,0,?,?,?)",[userid,username,None,None,None ],commit=commit)
 #Update a int in the database for the user
 def setUserint(user,item,value):
     #Check if the user is in the database
@@ -335,3 +348,69 @@ if __name__=='__main__':
     checkDB()
     #addMessage('role.noroles','❌ **{author}**, Er zijn geen rollen gevonden')
     addMessage('role.deleted','✔️ **{author}**, De rol is succesvol verwijderd!')
+
+###################
+# Word processing #
+###################
+#Check WordDB
+def checkWordDB():
+    #Run an sql that returns 1 if a table exists
+    exists = getIntExecute("select 1 from sqlite_master where type='table' and name='Words'",[])
+    #return nothing if it exists
+    if exists:
+        return
+    #Create table for the database
+    voidExecute("CREATE TABLE Words\
+     (word TEXT PRIMARY KEY NOT NULL,\
+     amount INT\
+     );",[],commit=True)
+
+#Check if message is usefull for things
+def checkIsUsable(msg):
+    #Check if there are spaces in the message
+    if not ' ' in msg:
+        #Return false if not
+        return False
+    #Check if the message is longer than 9 characters
+    if len(msg) < 9:
+        #Return false if not
+        return False
+    #Check if message contains at least 3 words
+    if len(msg.split(' ')) < 2:
+        #Return false if not
+        return False
+    #Return true if it is a good message
+    return True
+
+#Change the line to a array of words
+def msgToWords(msg):
+    #Split all words
+    words = word_tokenize(msg)
+    #Create an array for newly processed words
+    lw = []
+    #Loop thru all current words
+    for w in words:
+        #Check it the word is only letters
+        if w.isalpha():
+            #Add it to the newly proccesd words
+            lw.append(w)
+    #Return the newly processed words
+    return lw
+
+#Add the processed words to the database
+def addWordToDB(words):
+    #Loop thru all the words
+    for word in words:
+        #Check if the word is already in the database
+        out = getIntExecute('SELECT EXISTS(SELECT 1 FROM Words WHERE word=?);',[word])
+        #Check if it is 0 or None
+        if out is None or out == 0:
+            #Add a row to the database
+            voidExecute('INSERT INTO Words(word,amount)\
+    VALUES (?,1)',[word])
+        #If update the row in the database
+        else:
+            #Execute to sql command to update the words
+            voidExecute('UPDATE Words SET amount = amount + 1 WHERE word = ?',[word])
+    #Save the database
+    db.commit()

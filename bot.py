@@ -50,11 +50,18 @@ def registerCommands():
         else 
         {k: v for (k, v) in module.__dict__.items() if not k.startswith('_')
     })
+#Init the databases and classes
 def init():
+    #Start the database itself
     du.checkDB()
+    #Check locale part
     du.checkLocaleDB()
+    #Check user part
     du.checkUserDB()
+    #Check role part
     du.checkRoleDB()
+    #Check word part
+    du.checkWordDB()
 
 #Start the bot
 def start(token):
